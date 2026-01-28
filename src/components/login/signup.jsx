@@ -57,7 +57,7 @@ const Signup = () => {
 
       if (response.ok) {
         setMessage("Registration successful! Redirecting to login...");
-        setTimeout(() => navigate("/superlogin"), 2000);
+        setTimeout(() => navigate("/login"), 2000);
       } else {
         setMessage(data.message || "Registration failed");
       }
@@ -80,23 +80,18 @@ const Signup = () => {
       <div className="relative glass rounded-3xl p-8 sm:p-10 w-full max-w-2xl flex flex-col items-center z-10 animate-fade-in border-glow">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-gradient-to-tr from-teal-500 to-emerald-500 rounded-2xl p-4 mb-4 shadow-glow">
-            <svg
-              className="w-12 h-12 text-white"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+          <div className="relative mb-4">
+            <div className="absolute inset-0 bg-gradient-to-br from-teal-500 via-cyan-400 to-emerald-500 rounded-2xl blur-lg opacity-60 animate-pulse"></div>
+            <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl border border-teal-500/40 shadow-xl">
+              <img 
+                src="/logo.png" 
+                alt="WorkFusion Logo" 
+                className="w-14 h-14 object-contain"
               />
-            </svg>
+            </div>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold gradient-text mb-2 text-center">
-            Join Joblify
+            Join WorkFusion
           </h1>
           <p className="text-slate-400 text-base sm:text-lg text-center">
             Create your employer account
@@ -175,33 +170,33 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Company Information Section */}
+          {/* Business Information Section */}
           <div className="glass-light rounded-2xl p-6">
             <h3 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              Company Details
+              Business Details
             </h3>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Company Name
+                  Business Name
                 </label>
                 <input
                   type="text"
                   name="profile.companyName"
                   value={formData.profile.companyName}
                   onChange={handleChange}
-                  placeholder="Enter company name"
+                  placeholder="Enter business name"
                   className="w-full text-base px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 transition"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Company Website
+                  Business Website <span className="text-slate-500 font-normal">(Optional)</span>
                 </label>
                 <input
                   type="url"
@@ -215,13 +210,13 @@ const Signup = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Company Bio
+                  Business Bio
                 </label>
                 <textarea
                   name="profile.bio"
                   value={formData.profile.bio}
                   onChange={handleChange}
-                  placeholder="Brief description about your company"
+                  placeholder="Brief description about your business"
                   rows="3"
                   className="w-full text-base px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 transition resize-none"
                 />
@@ -257,7 +252,7 @@ const Signup = () => {
           <p className="text-slate-400 text-base">
             Already have an account?{" "}
             <button
-              onClick={() => navigate("/superlogin")}
+              onClick={() => navigate("/login")}
               className="text-teal-400 hover:text-emerald-400 font-semibold transition"
             >
               Sign In
@@ -267,7 +262,7 @@ const Signup = () => {
 
         {/* Footer */}
         <p className="mt-6 text-slate-600 text-sm text-center">
-          © 2026 Joblify Employer Portal
+          © 2026 WorkFusion Employer Portal
         </p>
       </div>
     </main>

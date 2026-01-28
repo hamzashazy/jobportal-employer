@@ -5,8 +5,10 @@ import { motion } from 'framer-motion';
 
 const API_BASE_URL = 'https://workky-backend.vercel.app/api';
 
-const JobDetail = ({ job, onBack, onJobUpdated, onJobDeleted, onViewApplications }) => {
+const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, onViewApplications }) => {
+  const [job, setJob] = useState(jobProp);
   const [isEditing, setIsEditing] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(!jobProp && jobId);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -18,6 +20,29 @@ const JobDetail = ({ job, onBack, onJobUpdated, onJobDeleted, onViewApplications
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  // Fetch job if accessed via URL with jobId
+  useEffect(() => {
+    if (!jobProp && jobId) {
+      const fetchJob = async () => {
+        try {
+          setFetchLoading(true);
+          const token = localStorage.getItem('token');
+          const res = await axios.get(`${API_BASE_URL}/jobs/${jobId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setJob(res.data);
+        } catch (err) {
+          setError(err.response?.data?.message || 'Failed to load job');
+        } finally {
+          setFetchLoading(false);
+        }
+      };
+      fetchJob();
+    } else if (jobProp) {
+      setJob(jobProp);
+    }
+  }, [jobProp, jobId]);
 
   useEffect(() => {
     if (job) {
@@ -91,6 +116,17 @@ const JobDetail = ({ job, onBack, onJobUpdated, onJobDeleted, onViewApplications
   };
 
   const inputClasses = "w-full px-4 py-3 text-base rounded-xl bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed";
+
+  if (fetchLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400 text-lg">Loading job details...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!job) {
     return (
@@ -210,7 +246,7 @@ const JobDetail = ({ job, onBack, onJobUpdated, onJobDeleted, onViewApplications
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Company Name <span className="text-rose-400">*</span>
+                      Business Name <span className="text-rose-400">*</span>
                     </label>
                     <input
                       type="text"

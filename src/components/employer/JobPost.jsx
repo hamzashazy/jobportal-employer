@@ -132,12 +132,12 @@ const JobPost = ({ onSuccess }) => {
               
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Company Name <span className="text-rose-400">*</span>
+                  Business Name <span className="text-rose-400">*</span>
                 </label>
                 <input 
                   type="text" 
                   name="company" 
-                  placeholder="Company name" 
+                  placeholder="Business name" 
                   value={formData.company}
                   onChange={handleChange} 
                   required 

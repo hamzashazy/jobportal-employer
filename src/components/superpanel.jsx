@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import {
   LayoutDashboard,
   Briefcase,
@@ -17,34 +18,40 @@ import JobDetail from "./employer/JobDetail.jsx";
 import EmployerProfile from "./employer/EmployerProfile.jsx";
 import ApplicationList from "./employer/ApplicationList.jsx";
 
-const Superpanel = () => {
-  const [activeModule, setActiveModule] = useState("dashboard");
+const Superpanel = ({ defaultModule }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = useParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+
+  // Determine active module from URL path
+  const getActiveModuleFromPath = () => {
+    const path = location.pathname;
+    if (path.includes("/job/") && path.includes("/applications")) return "applicationlist";
+    if (path.includes("/job/")) return "jobdetail";
+    if (path.includes("/post-job")) return "postjob";
+    if (path.includes("/my-jobs")) return "myjobs";
+    if (path.includes("/profile")) return "profile";
+    return "dashboard";
+  };
+
+  const activeModule = defaultModule || getActiveModuleFromPath();
 
   const modules = [
     {
       key: "postjob",
       title: "Post Job",
       icon: <PlusCircle className="w-6 h-6" />,
-      component: <JobPost onSuccess={() => setActiveModule("myjobs")} />,
+      path: "/dashboard/post-job",
       gradient: "from-teal-500 to-emerald-500",
-      description: "Create and publish new job listings for your company.",
+      description: "Create and publish new job listings for your business.",
     },
     {
       key: "myjobs",
       title: "My Jobs",
       icon: <Briefcase className="w-6 h-6" />,
-      component: <JobList 
-        onViewJob={(job) => {
-          setSelectedJob(job);
-          setActiveModule("jobdetail");
-        }}
-        onEditJob={(job) => {
-          setSelectedJob(job);
-          setActiveModule("jobdetail");
-        }}
-      />,
+      path: "/dashboard/my-jobs",
       gradient: "from-cyan-500 to-teal-500",
       description: "View and manage all your posted job listings.",
     },
@@ -52,11 +59,27 @@ const Superpanel = () => {
       key: "profile",
       title: "Profile",
       icon: <User className="w-6 h-6" />,
-      component: <EmployerProfile />,
+      path: "/dashboard/profile",
       gradient: "from-emerald-500 to-green-500",
-      description: "Update your company profile and account information.",
+      description: "Update your business profile and account information.",
     },
   ];
+
+  const handleNavigate = (module) => {
+    setSidebarOpen(false);
+    if (module === "dashboard") {
+      navigate("/dashboard");
+    } else {
+      const mod = modules.find(m => m.key === module);
+      if (mod) {
+        navigate(mod.path);
+      }
+    }
+  };
+
+  const handleLogoClick = () => {
+    navigate("/dashboard");
+  };
 
   const renderDashboard = () => (
     <div className="flex flex-col items-center w-full px-6 py-10">
@@ -82,7 +105,7 @@ const Superpanel = () => {
             transition={{ delay: index * 0.1 }}
             whileHover={{ scale: 1.03, y: -4 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveModule(mod.key)}
+            onClick={() => navigate(mod.path)}
             className="relative group glass rounded-2xl p-6 cursor-pointer overflow-hidden card-hover"
           >
             {/* Gradient overlay on hover */}
@@ -117,18 +140,19 @@ const Superpanel = () => {
     if (activeModule === "jobdetail") {
       return (
         <JobDetail 
-          job={selectedJob} 
-          onBack={() => setActiveModule("myjobs")}
+          job={selectedJob}
+          jobId={params.jobId}
+          onBack={() => navigate("/dashboard/my-jobs")}
           onJobUpdated={(updatedJob) => {
             setSelectedJob(updatedJob);
           }}
           onJobDeleted={() => {
-            setActiveModule("myjobs");
+            navigate("/dashboard/my-jobs");
             setSelectedJob(null);
           }}
           onViewApplications={(job) => {
             setSelectedJob(job);
-            setActiveModule("applicationlist");
+            navigate(`/dashboard/job/${job._id}/applications`);
           }}
         />
       );
@@ -136,33 +160,62 @@ const Superpanel = () => {
     if (activeModule === "applicationlist") {
       return (
         <ApplicationList
-          jobId={selectedJob?._id}
+          jobId={selectedJob?._id || params.jobId}
           jobTitle={selectedJob?.title}
-          onBack={() => setActiveModule("jobdetail")}
+          onBack={() => {
+            const jobId = selectedJob?._id || params.jobId;
+            navigate(`/dashboard/job/${jobId}`);
+          }}
         />
       );
     }
-    const mod = modules.find((m) => m.key === activeModule);
-    return <div className="flex-1">{mod?.component}</div>;
+    if (activeModule === "postjob") {
+      return <JobPost onSuccess={() => navigate("/dashboard/my-jobs")} />;
+    }
+    if (activeModule === "myjobs") {
+      return (
+        <JobList 
+          onViewJob={(job) => {
+            setSelectedJob(job);
+            navigate(`/dashboard/job/${job._id}`);
+          }}
+          onEditJob={(job) => {
+            setSelectedJob(job);
+            navigate(`/dashboard/job/${job._id}`);
+          }}
+        />
+      );
+    }
+    if (activeModule === "profile") {
+      return <EmployerProfile />;
+    }
+    return renderDashboard();
   };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center gap-3 mb-10 px-2">
-        <div className="bg-gradient-to-br from-teal-500 to-emerald-500 p-2 rounded-xl shadow-glow">
-          <Briefcase className="w-6 h-6 text-white" />
+      {/* Logo - Clickable */}
+      <div 
+        onClick={handleLogoClick}
+        className="flex items-center gap-3 mb-10 px-2 cursor-pointer hover:opacity-90 transition-all group"
+      >
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl blur-md opacity-60 group-hover:opacity-80 transition-opacity"></div>
+          <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 p-2 rounded-xl border border-teal-500/30">
+            <img 
+              src="/logo.png" 
+              alt="WorkFusion Logo" 
+              className="w-8 h-8 object-contain"
+            />
+          </div>
         </div>
-        <span className="font-bold text-xl gradient-text">Joblify</span>
+        <span className="font-bold text-xl gradient-text">WorkFusion</span>
       </div>
 
       {/* Navigation */}
       <nav className="space-y-2 flex-1">
         <button
-          onClick={() => {
-            setActiveModule("dashboard");
-            setSidebarOpen(false);
-          }}
+          onClick={() => handleNavigate("dashboard")}
           className={`relative flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all ${
             activeModule === "dashboard"
               ? "bg-teal-500/20 text-teal-400"
@@ -179,10 +232,7 @@ const Superpanel = () => {
         {modules.map((mod) => (
           <button
             key={mod.key}
-            onClick={() => {
-              setActiveModule(mod.key);
-              setSidebarOpen(false);
-            }}
+            onClick={() => handleNavigate(mod.key)}
             className={`relative flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all ${
               activeModule === mod.key
                 ? "bg-teal-500/20 text-teal-400"
@@ -206,7 +256,7 @@ const Superpanel = () => {
           onClick={() => {
             localStorage.removeItem("token");
             localStorage.removeItem("isLogged");
-            window.location.href = "/login";
+            navigate("/login");
           }}
           className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors"
         >
@@ -229,7 +279,15 @@ const Superpanel = () => {
         <button onClick={() => setSidebarOpen(true)} className="text-slate-400 hover:text-white transition-colors">
           <Menu className="w-6 h-6" />
         </button>
-        <span className="font-bold text-lg gradient-text">Joblify</span>
+        <div onClick={handleLogoClick} className="flex items-center gap-2 cursor-pointer group">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-lg blur-sm opacity-50 group-hover:opacity-70 transition-opacity"></div>
+            <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 p-1.5 rounded-lg border border-teal-500/30">
+              <img src="/logo.png" alt="WorkFusion Logo" className="w-6 h-6 object-contain" />
+            </div>
+          </div>
+          <span className="font-bold text-lg gradient-text">WorkFusion</span>
+        </div>
         <div className="w-6"></div>
       </div>
 

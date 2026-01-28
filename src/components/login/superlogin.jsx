@@ -30,7 +30,7 @@ const Superlogin = () => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("isLogged", "true");
         setMessage("Login successful!");
-        setTimeout(() => navigate("/Superpanel"), 1000);
+        setTimeout(() => navigate("/dashboard"), 1000);
       } else {
         setMessage(data.message || "Login failed");
       }
@@ -53,23 +53,18 @@ const Superlogin = () => {
       <div className="relative glass rounded-3xl p-8 sm:p-10 w-full max-w-lg flex flex-col items-center z-10 animate-fade-in border-glow">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-gradient-to-tr from-teal-500 to-emerald-500 rounded-2xl p-4 mb-4 shadow-glow">
-            <svg
-              className="w-12 h-12 text-white"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+          <div className="relative mb-4">
+            <div className="absolute inset-0 bg-gradient-to-br from-teal-500 via-cyan-400 to-emerald-500 rounded-2xl blur-lg opacity-60 animate-pulse"></div>
+            <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl border border-teal-500/40 shadow-xl">
+              <img 
+                src="/logo.png" 
+                alt="WorkFusion Logo" 
+                className="w-14 h-14 object-contain"
               />
-            </svg>
+            </div>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold gradient-text mb-2 text-center">
-            Joblify Employer
+            WorkFusion Employer
           </h1>
           <p className="text-slate-400 text-base sm:text-lg text-center">
             Sign in to manage your job postings
@@ -158,7 +153,7 @@ const Superlogin = () => {
 
         {/* Footer */}
         <p className="mt-6 text-slate-600 text-sm text-center">
-          © 2026 Joblify Employer Portal
+          © 2026 WorkFusion Employer Portal
         </p>
       </div>
     </main>

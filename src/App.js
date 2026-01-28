@@ -24,12 +24,52 @@ export default function App() {
       <Route path="/login" element={<Superlogin />} />
       <Route path="/signup" element={<Signup />} />
       
-      {/* Protected Routes */}
+      {/* Protected Routes - Dashboard with nested modules */}
       <Route 
         path="/dashboard" 
         element={
           <ProtectedRoute>
             <Superpanel />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard/post-job" 
+        element={
+          <ProtectedRoute>
+            <Superpanel defaultModule="postjob" />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard/my-jobs" 
+        element={
+          <ProtectedRoute>
+            <Superpanel defaultModule="myjobs" />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard/job/:jobId" 
+        element={
+          <ProtectedRoute>
+            <Superpanel defaultModule="jobdetail" />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard/job/:jobId/applications" 
+        element={
+          <ProtectedRoute>
+            <Superpanel defaultModule="applicationlist" />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard/profile" 
+        element={
+          <ProtectedRoute>
+            <Superpanel defaultModule="profile" />
           </ProtectedRoute>
         } 
       />

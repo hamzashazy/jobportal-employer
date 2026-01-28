@@ -138,7 +138,7 @@ const EmployerProfile = () => {
                 {isEditing ? 'Edit Profile' : 'My Profile'}
               </h2>
               <p className="text-slate-400 text-base sm:text-lg">
-                {isEditing ? 'Update your company information' : 'Manage your employer account'}
+                {isEditing ? 'Update your business information' : 'Manage your employer account'}
               </p>
             </div>
             
@@ -243,13 +243,13 @@ const EmployerProfile = () => {
                 <div className="glass-light rounded-2xl p-6">
                   <h3 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <Building className="w-5 h-5" />
-                    Company Information
+                    Business Information
                   </h3>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
                       <label className="block text-sm font-semibold text-slate-300 mb-2">
-                        Company Name
+                        Business Name
                       </label>
                       <input
                         type="text"
@@ -264,7 +264,7 @@ const EmployerProfile = () => {
 
                     <div>
                       <label className="block text-sm font-semibold text-slate-300 mb-2">
-                        Company Website
+                        Business Website
                       </label>
                       <input
                         type="url"
@@ -280,7 +280,7 @@ const EmployerProfile = () => {
 
                   <div className="mt-5">
                     <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Company Bio
+                      Business Bio
                     </label>
                     <textarea
                       name="bio"
@@ -288,7 +288,7 @@ const EmployerProfile = () => {
                       onChange={handleChange}
                       disabled={updateLoading}
                       rows="4"
-                      placeholder="Tell us about your company..."
+                      placeholder="Tell us about your business..."
                       className={`${inputClasses} resize-none`}
                     />
                   </div>
@@ -347,7 +347,7 @@ const EmployerProfile = () => {
                   <div className="glass-light rounded-xl p-4">
                     <label className="flex items-center gap-2 text-sm font-semibold text-slate-500 mb-2">
                       <Building className="w-4 h-4 text-emerald-400" />
-                      Company Name
+                      Business Name
                     </label>
                     <p className="text-lg text-white font-medium">
                       {profile?.profile?.companyName || 'Not provided'}
@@ -357,7 +357,7 @@ const EmployerProfile = () => {
                   <div className="glass-light rounded-xl p-4">
                     <label className="flex items-center gap-2 text-sm font-semibold text-slate-500 mb-2">
                       <Globe className="w-4 h-4 text-emerald-400" />
-                      Company Website
+                      Business Website
                     </label>
                     {profile?.profile?.companyWebsite ? (
                       <a
@@ -377,7 +377,7 @@ const EmployerProfile = () => {
                 <div className="glass-light rounded-xl p-6">
                   <label className="flex items-center gap-2 text-sm font-semibold text-slate-500 mb-3">
                     <FileText className="w-4 h-4 text-cyan-400" />
-                    Company Bio
+                    Business Bio
                   </label>
                   {profile?.profile?.bio ? (
                     <p className="text-slate-300 leading-relaxed whitespace-pre-line">
