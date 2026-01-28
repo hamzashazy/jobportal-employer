@@ -11,6 +11,12 @@ const ProtectedRoute = ({ children }) => {
   return isLogged ? children : <Navigate to="/login" />;
 };
 
+// Catch-all route that redirects based on auth status to prevent loops
+const CatchAllRoute = () => {
+  const isLogged = localStorage.getItem("isLogged") === "true";
+  return <Navigate to={isLogged ? "/dashboard" : "/login"} replace />;
+};
+
 export default function App() {
   return (
     <Routes>
@@ -28,9 +34,9 @@ export default function App() {
         } 
       />
       
-      {/* Default Route - Redirect to Dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Default Route - Redirect based on auth status */}
+      <Route path="/" element={<CatchAllRoute />} />
+      <Route path="*" element={<CatchAllRoute />} />
     </Routes>
   );
 }

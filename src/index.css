@@ -32,14 +32,14 @@ code {
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(71, 85, 105, 0.3);
   }
-  
+
   .glass-light {
     background: rgba(51, 65, 85, 0.5);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(71, 85, 105, 0.2);
   }
-  
+
   .glass-dark {
     background: rgba(15, 23, 42, 0.8);
     backdrop-filter: blur(16px);
@@ -51,11 +51,11 @@ code {
   .glow-teal {
     box-shadow: 0 0 20px rgba(20, 184, 166, 0.3);
   }
-  
+
   .glow-teal-lg {
     box-shadow: 0 0 40px rgba(20, 184, 166, 0.4);
   }
-  
+
   .text-glow {
     text-shadow: 0 0 20px rgba(20, 184, 166, 0.5);
   }
@@ -72,7 +72,7 @@ code {
   .border-glow {
     position: relative;
   }
-  
+
   .border-glow::before {
     content: '';
     position: absolute;
@@ -86,8 +86,9 @@ code {
     mask-composite: exclude;
     opacity: 0.5;
     transition: opacity 0.3s ease;
+    pointer-events: none;
   }
-  
+
   .border-glow:hover::before {
     opacity: 1;
   }
@@ -118,7 +119,9 @@ code {
 }
 
 /* Focus styles */
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.3);
 }
