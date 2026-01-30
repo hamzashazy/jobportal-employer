@@ -70,13 +70,45 @@ const JobList = ({ onViewJob, onEditJob }) => {
     return badges[jobType] || badges.remote;
   };
 
-  const getWorkArrangementBadge = (arrangement) => {
+  const getPricingTypeBadge = (pricingType) => {
     const badges = {
-      monthly: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', label: 'Monthly' },
-      weekly: { bg: 'bg-teal-500/20', text: 'text-teal-400', label: 'Weekly' },
-      project: { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Project' }
+      hourly: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', label: 'Hourly' },
+      fixed_price: { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Fixed Price' }
     };
-    return badges[arrangement] || badges.monthly;
+    return badges[pricingType] || badges.hourly;
+  };
+
+  const getCompensationDisplay = (job) => {
+    if (!job.compensation) return null;
+    
+    if (job.pricingType === 'hourly' && job.compensation.hourly) {
+      const { hourlyRate, estimatedHours } = job.compensation.hourly;
+      if (hourlyRate) {
+        let display = `$${hourlyRate}/hr`;
+        if (estimatedHours) {
+          display += ` (~${estimatedHours} hrs)`;
+        }
+        return display;
+      }
+    }
+    
+    if (job.pricingType === 'fixed_price' && job.compensation.fixedPrice) {
+      const { totalBudget, estimatedDuration } = job.compensation.fixedPrice;
+      if (totalBudget) {
+        let display = `$${totalBudget}`;
+        if (estimatedDuration) {
+          display += ` (${estimatedDuration})`;
+        }
+        return display;
+      }
+    }
+    
+    // Fallback to estimatedEarnings virtual
+    if (job.estimatedEarnings) {
+      return `$${job.estimatedEarnings}`;
+    }
+    
+    return null;
   };
 
   if (loading) {
@@ -147,7 +179,8 @@ const JobList = ({ onViewJob, onEditJob }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {jobs.map((job, index) => {
             const jobTypeBadge = getJobTypeBadge(job.jobType);
-            const arrangementBadge = getWorkArrangementBadge(job.workArrangement);
+            const pricingBadge = getPricingTypeBadge(job.pricingType);
+            const compensationDisplay = getCompensationDisplay(job);
             
             return (
               <motion.div
@@ -162,15 +195,14 @@ const JobList = ({ onViewJob, onEditJob }) => {
                   <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 group-hover:text-teal-400 transition-colors">
                     {job.title}
                   </h3>
-                  <p className="text-teal-400 font-medium">{job.company}</p>
                   
                   {/* Badges */}
                   <div className="flex flex-wrap gap-2 mt-3">
                     <span className={`px-2 py-1 rounded-lg text-xs font-medium ${jobTypeBadge.bg} ${jobTypeBadge.text}`}>
                       {jobTypeBadge.label}
                     </span>
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${arrangementBadge.bg} ${arrangementBadge.text}`}>
-                      {arrangementBadge.label}
+                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${pricingBadge.bg} ${pricingBadge.text}`}>
+                      {pricingBadge.label}
                     </span>
                     {job.status && job.status !== 'active' && (
                       <span className="px-2 py-1 rounded-lg text-xs font-medium bg-slate-500/20 text-slate-400">
@@ -196,10 +228,10 @@ const JobList = ({ onViewJob, onEditJob }) => {
                     </div>
                   )}
 
-                  {job.salary && (
+                  {compensationDisplay && (
                     <div className="flex items-center gap-2 text-slate-400">
                       <DollarSign className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      <span className="text-sm">{job.salary}</span>
+                      <span className="text-sm">{compensationDisplay}</span>
                     </div>
                   )}
 

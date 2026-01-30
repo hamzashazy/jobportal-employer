@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Send, Briefcase, MapPin, DollarSign, FileText, CheckCircle, Layers, Clock, Settings, Plus, X } from 'lucide-react';
+import { Send, Briefcase, MapPin, DollarSign, FileText, CheckCircle, Layers, Clock, Settings, Plus, X, Users } from 'lucide-react';
 
 const API_BASE_URL = 'https://workky-backend.vercel.app/api';
 
@@ -9,23 +9,21 @@ const JobPost = ({ onSuccess }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    company: '',
     requirements: [''],
     location: '',
-    salary: '',
     category: '',
     parentCategory: '',
     jobType: 'remote',
-    workArrangement: 'monthly',
-    businessType: 'hybrid',
+    pricingType: 'hourly',
     compensation: {
-      monthly: { hoursPerMonth: '', hourlyRate: '', totalMonthlyBudget: '' },
-      weekly: { hoursPerWeek: '', hourlyRate: '', weeklyBudget: '' },
-      project: { expectedTotalHours: '', hourlyRate: '', totalBudget: '', projectDuration: '' }
+      hourly: { hourlyRate: '', estimatedHours: '', minHours: '', maxHours: '' },
+      fixedPrice: { totalBudget: '', estimatedDuration: '' }
     },
     skillsRequired: [],
     experienceRequired: { minYears: 0, maxYears: '', description: '' },
-    educationRequired: 'none'
+    educationRequired: 'none',
+    timezone: '',
+    vacancies: 1
   });
   
   const [categories, setCategories] = useState([]);
@@ -88,14 +86,14 @@ const JobPost = ({ onSuccess }) => {
     // Handle nested compensation fields
     if (name.startsWith('compensation.')) {
       const parts = name.split('.');
-      const arrangementType = parts[1];
+      const pricingType = parts[1];
       const field = parts[2];
       setFormData(prev => ({
         ...prev,
         compensation: {
           ...prev.compensation,
-          [arrangementType]: {
-            ...prev.compensation[arrangementType],
+          [pricingType]: {
+            ...prev.compensation[pricingType],
             [field]: value
           }
         }
@@ -111,6 +109,8 @@ const JobPost = ({ onSuccess }) => {
       }));
     } else if (name === 'parentCategory') {
       setFormData(prev => ({ ...prev, [name]: value, category: '' }));
+    } else if (name === 'vacancies') {
+      setFormData(prev => ({ ...prev, [name]: parseInt(value) || 1 }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -174,29 +174,44 @@ const JobPost = ({ onSuccess }) => {
       const submitData = {
         title: formData.title,
         description: formData.description,
-        company: formData.company,
         requirements: filteredRequirements,
         category: formData.category || formData.parentCategory,
         parentCategory: formData.parentCategory || undefined,
         jobType: formData.jobType,
-        workArrangement: formData.workArrangement,
-        businessType: formData.businessType,
+        pricingType: formData.pricingType,
         location: formData.location || undefined,
-        salary: formData.salary || undefined,
         skillsRequired: formData.skillsRequired.length > 0 ? formData.skillsRequired : undefined,
         experienceRequired: formData.experienceRequired.minYears > 0 ? formData.experienceRequired : undefined,
-        educationRequired: formData.educationRequired !== 'none' ? formData.educationRequired : undefined
+        educationRequired: formData.educationRequired !== 'none' ? formData.educationRequired : undefined,
+        timezone: formData.timezone || undefined,
+        vacancies: formData.vacancies > 0 ? formData.vacancies : 1
       };
 
-      // Add compensation based on workArrangement
-      const compData = formData.compensation[formData.workArrangement];
-      const hasCompensation = Object.values(compData).some(v => v !== '' && v !== undefined);
-      if (hasCompensation) {
-        submitData.compensation = {
-          [formData.workArrangement]: Object.fromEntries(
-            Object.entries(compData).filter(([_, v]) => v !== '' && v !== undefined).map(([k, v]) => [k, isNaN(v) ? v : parseFloat(v)])
-          )
-        };
+      // Add compensation based on pricingType
+      if (formData.pricingType === 'hourly') {
+        const hourlyData = formData.compensation.hourly;
+        const hasHourlyData = hourlyData.hourlyRate || hourlyData.estimatedHours;
+        if (hasHourlyData) {
+          submitData.compensation = {
+            hourly: {
+              hourlyRate: hourlyData.hourlyRate ? parseFloat(hourlyData.hourlyRate) : undefined,
+              estimatedHours: hourlyData.estimatedHours ? parseFloat(hourlyData.estimatedHours) : undefined,
+              minHours: hourlyData.minHours ? parseFloat(hourlyData.minHours) : undefined,
+              maxHours: hourlyData.maxHours ? parseFloat(hourlyData.maxHours) : undefined
+            }
+          };
+        }
+      } else if (formData.pricingType === 'fixed_price') {
+        const fixedData = formData.compensation.fixedPrice;
+        const hasFixedData = fixedData.totalBudget || fixedData.estimatedDuration;
+        if (hasFixedData) {
+          submitData.compensation = {
+            fixedPrice: {
+              totalBudget: fixedData.totalBudget ? parseFloat(fixedData.totalBudget) : undefined,
+              estimatedDuration: fixedData.estimatedDuration || undefined
+            }
+          };
+        }
       }
 
       await axios.post(`${API_BASE_URL}/jobs`, submitData, {
@@ -208,23 +223,21 @@ const JobPost = ({ onSuccess }) => {
       setFormData({
         title: '',
         description: '',
-        company: '',
         requirements: [''],
         location: '',
-        salary: '',
         category: '',
         parentCategory: '',
         jobType: 'remote',
-        workArrangement: 'monthly',
-        businessType: 'hybrid',
+        pricingType: 'hourly',
         compensation: {
-          monthly: { hoursPerMonth: '', hourlyRate: '', totalMonthlyBudget: '' },
-          weekly: { hoursPerWeek: '', hourlyRate: '', weeklyBudget: '' },
-          project: { expectedTotalHours: '', hourlyRate: '', totalBudget: '', projectDuration: '' }
+          hourly: { hourlyRate: '', estimatedHours: '', minHours: '', maxHours: '' },
+          fixedPrice: { totalBudget: '', estimatedDuration: '' }
         },
         skillsRequired: [],
         experienceRequired: { minYears: 0, maxYears: '', description: '' },
-        educationRequired: 'none'
+        educationRequired: 'none',
+        timezone: '',
+        vacancies: 1
       });
       
       if (onSuccess) {
@@ -241,103 +254,29 @@ const JobPost = ({ onSuccess }) => {
   const selectClasses = `${inputClasses} appearance-none cursor-pointer`;
 
   const renderCompensationFields = () => {
-    const { workArrangement } = formData;
+    const { pricingType } = formData;
     
-    if (workArrangement === 'monthly') {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Hours/Month</label>
-            <input
-              type="number"
-              name="compensation.monthly.hoursPerMonth"
-              value={formData.compensation.monthly.hoursPerMonth}
-              onChange={handleChange}
-              placeholder="e.g., 160"
-              disabled={loading}
-              className={inputClasses}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Hourly Rate ($)</label>
-            <input
-              type="number"
-              name="compensation.monthly.hourlyRate"
-              value={formData.compensation.monthly.hourlyRate}
-              onChange={handleChange}
-              placeholder="e.g., 25"
-              disabled={loading}
-              className={inputClasses}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Monthly Budget ($)</label>
-            <input
-              type="number"
-              name="compensation.monthly.totalMonthlyBudget"
-              value={formData.compensation.monthly.totalMonthlyBudget}
-              onChange={handleChange}
-              placeholder="e.g., 4000"
-              disabled={loading}
-              className={inputClasses}
-            />
-          </div>
-        </div>
-      );
-    }
-    
-    if (workArrangement === 'weekly') {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Hours/Week</label>
-            <input
-              type="number"
-              name="compensation.weekly.hoursPerWeek"
-              value={formData.compensation.weekly.hoursPerWeek}
-              onChange={handleChange}
-              placeholder="e.g., 40"
-              disabled={loading}
-              className={inputClasses}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Hourly Rate ($)</label>
-            <input
-              type="number"
-              name="compensation.weekly.hourlyRate"
-              value={formData.compensation.weekly.hourlyRate}
-              onChange={handleChange}
-              placeholder="e.g., 25"
-              disabled={loading}
-              className={inputClasses}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Weekly Budget ($)</label>
-            <input
-              type="number"
-              name="compensation.weekly.weeklyBudget"
-              value={formData.compensation.weekly.weeklyBudget}
-              onChange={handleChange}
-              placeholder="e.g., 1000"
-              disabled={loading}
-              className={inputClasses}
-            />
-          </div>
-        </div>
-      );
-    }
-    
-    if (workArrangement === 'project') {
+    if (pricingType === 'hourly') {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Total Hours Est.</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Hourly Rate ($) <span className="text-rose-400">*</span></label>
             <input
               type="number"
-              name="compensation.project.expectedTotalHours"
-              value={formData.compensation.project.expectedTotalHours}
+              name="compensation.hourly.hourlyRate"
+              value={formData.compensation.hourly.hourlyRate}
+              onChange={handleChange}
+              placeholder="e.g., 25"
+              disabled={loading}
+              className={inputClasses}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Estimated Hours</label>
+            <input
+              type="number"
+              name="compensation.hourly.estimatedHours"
+              value={formData.compensation.hourly.estimatedHours}
               onChange={handleChange}
               placeholder="e.g., 100"
               disabled={loading}
@@ -345,35 +284,54 @@ const JobPost = ({ onSuccess }) => {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Hourly Rate ($)</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Min Hours (Optional)</label>
             <input
               type="number"
-              name="compensation.project.hourlyRate"
-              value={formData.compensation.project.hourlyRate}
+              name="compensation.hourly.minHours"
+              value={formData.compensation.hourly.minHours}
               onChange={handleChange}
-              placeholder="e.g., 30"
+              placeholder="e.g., 10"
               disabled={loading}
               className={inputClasses}
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Total Budget ($)</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Max Hours (Optional)</label>
             <input
               type="number"
-              name="compensation.project.totalBudget"
-              value={formData.compensation.project.totalBudget}
+              name="compensation.hourly.maxHours"
+              value={formData.compensation.hourly.maxHours}
               onChange={handleChange}
-              placeholder="e.g., 3000"
+              placeholder="e.g., 200"
+              disabled={loading}
+              className={inputClasses}
+            />
+          </div>
+        </div>
+      );
+    }
+    
+    if (pricingType === 'fixed_price') {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Total Budget ($) <span className="text-rose-400">*</span></label>
+            <input
+              type="number"
+              name="compensation.fixedPrice.totalBudget"
+              value={formData.compensation.fixedPrice.totalBudget}
+              onChange={handleChange}
+              placeholder="e.g., 5000"
               disabled={loading}
               className={inputClasses}
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Duration</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Estimated Duration</label>
             <input
               type="text"
-              name="compensation.project.projectDuration"
-              value={formData.compensation.project.projectDuration}
+              name="compensation.fixedPrice.estimatedDuration"
+              value={formData.compensation.fixedPrice.estimatedDuration}
               onChange={handleChange}
               placeholder="e.g., 2 weeks"
               disabled={loading}
@@ -441,7 +399,7 @@ const JobPost = ({ onSuccess }) => {
               Job Details
             </h3>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">
                   Job Title <span className="text-rose-400">*</span>
@@ -458,20 +416,39 @@ const JobPost = ({ onSuccess }) => {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Business Name <span className="text-rose-400">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="company" 
-                  placeholder="Business name" 
-                  value={formData.company}
-                  onChange={handleChange} 
-                  required 
-                  disabled={loading}
-                  className={inputClasses}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">
+                    <Users className="w-4 h-4 inline mr-1" />
+                    Vacancies
+                  </label>
+                  <input 
+                    type="number" 
+                    name="vacancies" 
+                    placeholder="1" 
+                    value={formData.vacancies}
+                    onChange={handleChange} 
+                    min="1"
+                    disabled={loading}
+                    className={inputClasses}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    Timezone Preference
+                  </label>
+                  <input 
+                    type="text" 
+                    name="timezone" 
+                    placeholder="e.g., EST, PST, UTC+5" 
+                    value={formData.timezone}
+                    onChange={handleChange} 
+                    disabled={loading}
+                    className={inputClasses}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -540,66 +517,31 @@ const JobPost = ({ onSuccess }) => {
                   <option value="hybrid">Hybrid</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Business Type
-                </label>
-                <select
-                  name="businessType"
-                  value={formData.businessType}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className={selectClasses}
-                >
-                  <option value="digital">Digital</option>
-                  <option value="physical">Physical</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-              </div>
             </div>
           </div>
 
-          {/* Work Arrangement & Compensation */}
+          {/* Pricing & Compensation */}
           <div className="glass-light rounded-2xl p-6">
             <h3 className="text-lg font-bold text-purple-400 mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              Work Arrangement & Compensation
+              <DollarSign className="w-5 h-5" />
+              Pricing & Compensation
             </h3>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Work Arrangement <span className="text-rose-400">*</span>
-                </label>
-                <select
-                  name="workArrangement"
-                  value={formData.workArrangement}
-                  onChange={handleChange}
-                  required
-                  disabled={loading}
-                  className={selectClasses}
-                >
-                  <option value="monthly">Monthly</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="project">Project-Based</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Salary Range (Legacy)
-                </label>
-                <input 
-                  type="text" 
-                  name="salary" 
-                  placeholder="e.g., $50k-70k" 
-                  value={formData.salary}
-                  onChange={handleChange} 
-                  disabled={loading}
-                  className={inputClasses}
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-2">
+                Pricing Type <span className="text-rose-400">*</span>
+              </label>
+              <select
+                name="pricingType"
+                value={formData.pricingType}
+                onChange={handleChange}
+                required
+                disabled={loading}
+                className={selectClasses}
+              >
+                <option value="hourly">Hourly Rate</option>
+                <option value="fixed_price">Fixed Price Project</option>
+              </select>
             </div>
             
             {renderCompensationFields()}

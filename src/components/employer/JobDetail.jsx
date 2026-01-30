@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Edit2, Save, X, Trash2, MapPin, DollarSign, Calendar, Building, Briefcase, FileText, CheckCircle, Users, Globe, Clock, Layers } from 'lucide-react';
+import { ArrowLeft, Edit2, Save, X, Trash2, MapPin, DollarSign, Briefcase, FileText, CheckCircle, Users, Globe, Clock, Layers, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const API_BASE_URL = 'https://workky-backend.vercel.app/api';
@@ -9,18 +9,22 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
   const [job, setJob] = useState(jobProp);
   const [isEditing, setIsEditing] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(!jobProp && jobId);
+  // eslint-disable-next-line no-unused-vars
   const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    company: '',
     requirements: [''],
     location: '',
-    salary: '',
     jobType: 'remote',
-    workArrangement: 'monthly',
-    businessType: 'hybrid',
-    status: 'active'
+    pricingType: 'hourly',
+    compensation: {
+      hourly: { hourlyRate: '', estimatedHours: '', minHours: '', maxHours: '' },
+      fixedPrice: { totalBudget: '', estimatedDuration: '' }
+    },
+    status: 'active',
+    timezone: '',
+    vacancies: 1
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -79,24 +83,67 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
         requirements = [job.requirements];
       }
       
+      // Build compensation from job data
+      const compensation = {
+        hourly: { hourlyRate: '', estimatedHours: '', minHours: '', maxHours: '' },
+        fixedPrice: { totalBudget: '', estimatedDuration: '' }
+      };
+      
+      if (job.compensation) {
+        if (job.compensation.hourly) {
+          compensation.hourly = {
+            hourlyRate: job.compensation.hourly.hourlyRate || '',
+            estimatedHours: job.compensation.hourly.estimatedHours || '',
+            minHours: job.compensation.hourly.minHours || '',
+            maxHours: job.compensation.hourly.maxHours || ''
+          };
+        }
+        if (job.compensation.fixedPrice) {
+          compensation.fixedPrice = {
+            totalBudget: job.compensation.fixedPrice.totalBudget || '',
+            estimatedDuration: job.compensation.fixedPrice.estimatedDuration || ''
+          };
+        }
+      }
+      
       setFormData({
         title: job.title || '',
         description: job.description || '',
-        company: job.company || '',
         requirements,
         location: job.location || '',
-        salary: job.salary || '',
         jobType: job.jobType || 'remote',
-        workArrangement: job.workArrangement || 'monthly',
-        businessType: job.businessType || 'hybrid',
-        status: job.status || 'active'
+        pricingType: job.pricingType || 'hourly',
+        compensation,
+        status: job.status || 'active',
+        timezone: job.timezone || '',
+        vacancies: job.vacancies || 1
       });
     }
   }, [job]);
 
   const handleChange = e => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (name.startsWith('compensation.')) {
+      const parts = name.split('.');
+      const pricingType = parts[1];
+      const field = parts[2];
+      setFormData(prev => ({
+        ...prev,
+        compensation: {
+          ...prev.compensation,
+          [pricingType]: {
+            ...prev.compensation[pricingType],
+            [field]: value
+          }
+        }
+      }));
+    } else if (name === 'vacancies') {
+      setFormData(prev => ({ ...prev, [name]: parseInt(value) || 1 }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+    
     if (error) setError(null);
     if (success) setSuccess(null);
   };
@@ -131,9 +178,43 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
       const filteredRequirements = formData.requirements.filter(r => r.trim());
       
       const submitData = {
-        ...formData,
-        requirements: filteredRequirements.length > 0 ? filteredRequirements : undefined
+        title: formData.title,
+        description: formData.description,
+        requirements: filteredRequirements.length > 0 ? filteredRequirements : undefined,
+        location: formData.location || undefined,
+        jobType: formData.jobType,
+        pricingType: formData.pricingType,
+        status: formData.status,
+        timezone: formData.timezone || undefined,
+        vacancies: formData.vacancies > 0 ? formData.vacancies : 1
       };
+      
+      // Add compensation based on pricingType
+      if (formData.pricingType === 'hourly') {
+        const hourlyData = formData.compensation.hourly;
+        const hasHourlyData = hourlyData.hourlyRate || hourlyData.estimatedHours;
+        if (hasHourlyData) {
+          submitData.compensation = {
+            hourly: {
+              hourlyRate: hourlyData.hourlyRate ? parseFloat(hourlyData.hourlyRate) : undefined,
+              estimatedHours: hourlyData.estimatedHours ? parseFloat(hourlyData.estimatedHours) : undefined,
+              minHours: hourlyData.minHours ? parseFloat(hourlyData.minHours) : undefined,
+              maxHours: hourlyData.maxHours ? parseFloat(hourlyData.maxHours) : undefined
+            }
+          };
+        }
+      } else if (formData.pricingType === 'fixed_price') {
+        const fixedData = formData.compensation.fixedPrice;
+        const hasFixedData = fixedData.totalBudget || fixedData.estimatedDuration;
+        if (hasFixedData) {
+          submitData.compensation = {
+            fixedPrice: {
+              totalBudget: fixedData.totalBudget ? parseFloat(fixedData.totalBudget) : undefined,
+              estimatedDuration: fixedData.estimatedDuration || undefined
+            }
+          };
+        }
+      }
       
       const res = await axios.put(`${API_BASE_URL}/jobs/${job._id}`, submitData, {
         headers: { Authorization: `Bearer ${token}` },
@@ -188,17 +269,108 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
     return badges[jobType] || badges.remote;
   };
 
-  const getWorkArrangementBadge = (arrangement) => {
+  const getPricingTypeBadge = (pricingType) => {
     const badges = {
-      monthly: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', label: 'Monthly' },
-      weekly: { bg: 'bg-teal-500/20', text: 'text-teal-400', label: 'Weekly' },
-      project: { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Project-Based' }
+      hourly: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', label: 'Hourly' },
+      fixed_price: { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Fixed Price' }
     };
-    return badges[arrangement] || badges.monthly;
+    return badges[pricingType] || badges.hourly;
   };
 
   const inputClasses = "w-full px-4 py-3 text-base rounded-xl bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed";
   const selectClasses = `${inputClasses} appearance-none cursor-pointer`;
+
+  const renderCompensationFields = () => {
+    const { pricingType } = formData;
+    
+    if (pricingType === 'hourly') {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Hourly Rate ($)</label>
+            <input
+              type="number"
+              name="compensation.hourly.hourlyRate"
+              value={formData.compensation.hourly.hourlyRate}
+              onChange={handleChange}
+              placeholder="e.g., 25"
+              disabled={loading}
+              className={inputClasses}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Estimated Hours</label>
+            <input
+              type="number"
+              name="compensation.hourly.estimatedHours"
+              value={formData.compensation.hourly.estimatedHours}
+              onChange={handleChange}
+              placeholder="e.g., 100"
+              disabled={loading}
+              className={inputClasses}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Min Hours</label>
+            <input
+              type="number"
+              name="compensation.hourly.minHours"
+              value={formData.compensation.hourly.minHours}
+              onChange={handleChange}
+              placeholder="e.g., 10"
+              disabled={loading}
+              className={inputClasses}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Max Hours</label>
+            <input
+              type="number"
+              name="compensation.hourly.maxHours"
+              value={formData.compensation.hourly.maxHours}
+              onChange={handleChange}
+              placeholder="e.g., 200"
+              disabled={loading}
+              className={inputClasses}
+            />
+          </div>
+        </div>
+      );
+    }
+    
+    if (pricingType === 'fixed_price') {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Total Budget ($)</label>
+            <input
+              type="number"
+              name="compensation.fixedPrice.totalBudget"
+              value={formData.compensation.fixedPrice.totalBudget}
+              onChange={handleChange}
+              placeholder="e.g., 5000"
+              disabled={loading}
+              className={inputClasses}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Estimated Duration</label>
+            <input
+              type="text"
+              name="compensation.fixedPrice.estimatedDuration"
+              value={formData.compensation.fixedPrice.estimatedDuration}
+              onChange={handleChange}
+              placeholder="e.g., 2 weeks"
+              disabled={loading}
+              className={inputClasses}
+            />
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
+  };
 
   if (fetchLoading) {
     return (
@@ -220,7 +392,7 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
   }
 
   const jobTypeBadge = getJobTypeBadge(job.jobType);
-  const arrangementBadge = getWorkArrangementBadge(job.workArrangement);
+  const pricingBadge = getPricingTypeBadge(job.pricingType);
 
   return (
     <div className="w-full p-6 animate-fade-in">
@@ -314,7 +486,7 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                   Job Details
                 </h3>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-semibold text-slate-300 mb-2">
                       Job Title <span className="text-rose-400">*</span>
@@ -329,20 +501,37 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                       className={inputClasses}
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Business Name <span className="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="company"
-                      value={formData.company}
-                      onChange={handleChange}
-                      required
-                      disabled={loading}
-                      className={inputClasses}
-                    />
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-300 mb-2">
+                        Vacancies
+                      </label>
+                      <input
+                        type="number"
+                        name="vacancies"
+                        value={formData.vacancies}
+                        onChange={handleChange}
+                        min="1"
+                        disabled={loading}
+                        className={inputClasses}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-300 mb-2">
+                        Timezone
+                      </label>
+                      <input
+                        type="text"
+                        name="timezone"
+                        value={formData.timezone}
+                        onChange={handleChange}
+                        placeholder="e.g., EST, PST"
+                        disabled={loading}
+                        className={inputClasses}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -350,7 +539,7 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
               <div className="glass-light rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-cyan-400 mb-4 flex items-center gap-2">
                   <Layers className="w-5 h-5" />
-                  Job Type & Arrangement
+                  Job Type & Status
                 </h3>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -373,18 +562,17 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Work Arrangement
+                      Pricing Type
                     </label>
                     <select
-                      name="workArrangement"
-                      value={formData.workArrangement}
+                      name="pricingType"
+                      value={formData.pricingType}
                       onChange={handleChange}
                       disabled={loading}
                       className={selectClasses}
                     >
-                      <option value="monthly">Monthly</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="project">Project-Based</option>
+                      <option value="hourly">Hourly</option>
+                      <option value="fixed_price">Fixed Price</option>
                     </select>
                   </div>
 
@@ -409,44 +597,36 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
               </div>
 
               <div className="glass-light rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-purple-400 mb-4 flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Compensation
+                </h3>
+                {renderCompensationFields()}
+              </div>
+
+              <div className="glass-light rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
-                  Location & Compensation
+                  Location
                 </h3>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className={inputClasses}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Salary Range
-                    </label>
-                    <input
-                      type="text"
-                      name="salary"
-                      value={formData.salary}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className={inputClasses}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    disabled={loading}
+                    className={inputClasses}
+                  />
                 </div>
               </div>
 
               <div className="glass-light rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-purple-400 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
                   <FileText className="w-5 h-5" />
                   Description & Requirements
                 </h3>
@@ -528,17 +708,40 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                       } else if (typeof job.requirements === 'string' && job.requirements) {
                         requirements = [job.requirements];
                       }
+                      
+                      const compensation = {
+                        hourly: { hourlyRate: '', estimatedHours: '', minHours: '', maxHours: '' },
+                        fixedPrice: { totalBudget: '', estimatedDuration: '' }
+                      };
+                      
+                      if (job.compensation) {
+                        if (job.compensation.hourly) {
+                          compensation.hourly = {
+                            hourlyRate: job.compensation.hourly.hourlyRate || '',
+                            estimatedHours: job.compensation.hourly.estimatedHours || '',
+                            minHours: job.compensation.hourly.minHours || '',
+                            maxHours: job.compensation.hourly.maxHours || ''
+                          };
+                        }
+                        if (job.compensation.fixedPrice) {
+                          compensation.fixedPrice = {
+                            totalBudget: job.compensation.fixedPrice.totalBudget || '',
+                            estimatedDuration: job.compensation.fixedPrice.estimatedDuration || ''
+                          };
+                        }
+                      }
+                      
                       setFormData({
                         title: job.title || '',
                         description: job.description || '',
-                        company: job.company || '',
                         requirements,
                         location: job.location || '',
-                        salary: job.salary || '',
                         jobType: job.jobType || 'remote',
-                        workArrangement: job.workArrangement || 'monthly',
-                        businessType: job.businessType || 'hybrid',
-                        status: job.status || 'active'
+                        pricingType: job.pricingType || 'hourly',
+                        compensation,
+                        status: job.status || 'active',
+                        timezone: job.timezone || '',
+                        vacancies: job.vacancies || 1
                       });
                     }
                   }}
@@ -562,8 +765,8 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                   <span className={`px-3 py-1 rounded-lg text-sm font-medium ${jobTypeBadge.bg} ${jobTypeBadge.text}`}>
                     {jobTypeBadge.label}
                   </span>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-medium ${arrangementBadge.bg} ${arrangementBadge.text}`}>
-                    {arrangementBadge.label}
+                  <span className={`px-3 py-1 rounded-lg text-sm font-medium ${pricingBadge.bg} ${pricingBadge.text}`}>
+                    {pricingBadge.label}
                   </span>
                   {job.status && (
                     <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
@@ -578,10 +781,12 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                 </div>
                 
                 <div className="flex flex-wrap gap-4">
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <Building className="w-5 h-5 text-teal-400" />
-                    <span className="font-medium">{job.company}</span>
-                  </div>
+                  {job.employer && (
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <Users className="w-5 h-5 text-teal-400" />
+                      <span className="font-medium">{job.employer.name || 'Employer'}</span>
+                    </div>
+                  )}
                   {job.location && (
                     <div className="flex items-center gap-2 text-slate-300">
                       <MapPin className="w-5 h-5 text-teal-400" />
@@ -594,10 +799,10 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                       <span>{job.category.name || job.category}</span>
                     </div>
                   )}
-                  {job.salary && (
+                  {job.vacancies > 1 && (
                     <div className="flex items-center gap-2 text-slate-300">
-                      <DollarSign className="w-5 h-5 text-emerald-400" />
-                      <span>{job.salary}</span>
+                      <Users className="w-5 h-5 text-purple-400" />
+                      <span>{job.vacancies} vacancies</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-slate-400">
@@ -657,77 +862,72 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
               {job.compensation && (
                 <div className="glass-light rounded-xl p-6">
                   <h4 className="text-lg font-bold text-purple-400 mb-3 flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
+                    <DollarSign className="w-5 h-5" />
                     Compensation Details
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                    {job.workArrangement === 'monthly' && job.compensation.monthly && (
+                    {job.pricingType === 'hourly' && job.compensation.hourly && (
                       <>
-                        {job.compensation.monthly.hoursPerMonth && (
-                          <div>
-                            <span className="text-slate-500">Hours/Month:</span>
-                            <span className="ml-2 text-slate-300">{job.compensation.monthly.hoursPerMonth}</span>
-                          </div>
-                        )}
-                        {job.compensation.monthly.hourlyRate && (
+                        {job.compensation.hourly.hourlyRate && (
                           <div>
                             <span className="text-slate-500">Hourly Rate:</span>
-                            <span className="ml-2 text-slate-300">${job.compensation.monthly.hourlyRate}</span>
+                            <span className="ml-2 text-slate-300">${job.compensation.hourly.hourlyRate}</span>
                           </div>
                         )}
-                        {job.compensation.monthly.totalMonthlyBudget && (
-                          <div>
-                            <span className="text-slate-500">Monthly Budget:</span>
-                            <span className="ml-2 text-slate-300">${job.compensation.monthly.totalMonthlyBudget}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {job.workArrangement === 'weekly' && job.compensation.weekly && (
-                      <>
-                        {job.compensation.weekly.hoursPerWeek && (
-                          <div>
-                            <span className="text-slate-500">Hours/Week:</span>
-                            <span className="ml-2 text-slate-300">{job.compensation.weekly.hoursPerWeek}</span>
-                          </div>
-                        )}
-                        {job.compensation.weekly.hourlyRate && (
-                          <div>
-                            <span className="text-slate-500">Hourly Rate:</span>
-                            <span className="ml-2 text-slate-300">${job.compensation.weekly.hourlyRate}</span>
-                          </div>
-                        )}
-                        {job.compensation.weekly.weeklyBudget && (
-                          <div>
-                            <span className="text-slate-500">Weekly Budget:</span>
-                            <span className="ml-2 text-slate-300">${job.compensation.weekly.weeklyBudget}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {job.workArrangement === 'project' && job.compensation.project && (
-                      <>
-                        {job.compensation.project.expectedTotalHours && (
+                        {job.compensation.hourly.estimatedHours && (
                           <div>
                             <span className="text-slate-500">Est. Hours:</span>
-                            <span className="ml-2 text-slate-300">{job.compensation.project.expectedTotalHours}</span>
+                            <span className="ml-2 text-slate-300">{job.compensation.hourly.estimatedHours}</span>
                           </div>
                         )}
-                        {job.compensation.project.totalBudget && (
+                        {job.compensation.hourly.minHours && (
+                          <div>
+                            <span className="text-slate-500">Min Hours:</span>
+                            <span className="ml-2 text-slate-300">{job.compensation.hourly.minHours}</span>
+                          </div>
+                        )}
+                        {job.compensation.hourly.maxHours && (
+                          <div>
+                            <span className="text-slate-500">Max Hours:</span>
+                            <span className="ml-2 text-slate-300">{job.compensation.hourly.maxHours}</span>
+                          </div>
+                        )}
+                        {job.estimatedEarnings && (
+                          <div className="col-span-full">
+                            <span className="text-slate-500">Est. Total:</span>
+                            <span className="ml-2 text-emerald-400 font-medium">${job.estimatedEarnings}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {job.pricingType === 'fixed_price' && job.compensation.fixedPrice && (
+                      <>
+                        {job.compensation.fixedPrice.totalBudget && (
                           <div>
                             <span className="text-slate-500">Total Budget:</span>
-                            <span className="ml-2 text-slate-300">${job.compensation.project.totalBudget}</span>
+                            <span className="ml-2 text-emerald-400 font-medium">${job.compensation.fixedPrice.totalBudget}</span>
                           </div>
                         )}
-                        {job.compensation.project.projectDuration && (
+                        {job.compensation.fixedPrice.estimatedDuration && (
                           <div>
                             <span className="text-slate-500">Duration:</span>
-                            <span className="ml-2 text-slate-300">{job.compensation.project.projectDuration}</span>
+                            <span className="ml-2 text-slate-300">{job.compensation.fixedPrice.estimatedDuration}</span>
                           </div>
                         )}
                       </>
                     )}
                   </div>
+                </div>
+              )}
+              
+              {/* Timezone */}
+              {job.timezone && (
+                <div className="glass-light rounded-xl p-6">
+                  <h4 className="text-lg font-bold text-cyan-400 mb-3 flex items-center gap-2">
+                    <Clock className="w-5 h-5" />
+                    Timezone Preference
+                  </h4>
+                  <p className="text-slate-300">{job.timezone}</p>
                 </div>
               )}
             </div>
