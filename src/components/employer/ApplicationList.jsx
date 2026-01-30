@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { ArrowLeft, User, Mail, FileText, Calendar, Check, X, Eye, UserCheck, Briefcase, RefreshCw } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowLeft, User, Mail, FileText, Calendar, Check, X, Eye, UserCheck, Briefcase, RefreshCw, DollarSign, Clock, Star, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const API_BASE_URL = 'https://workky-backend.vercel.app/api';
 
@@ -10,6 +10,7 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updateLoading, setUpdateLoading] = useState(null);
+  const [expandedProposals, setExpandedProposals] = useState({});
 
   const fetchApplications = useCallback(async () => {
     try {
@@ -19,7 +20,9 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      setApplications(res.data);
+      // Handle paginated response format { success, count, data }
+      const applicationsData = res.data.data || res.data;
+      setApplications(Array.isArray(applicationsData) ? applicationsData : []);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.msg || err.response?.data?.message || 'Failed to load applications');
@@ -37,7 +40,9 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
   const handleStatusUpdate = async (applicationId, newStatus) => {
     const statusLabels = {
       viewed: 'Mark as Viewed',
+      shortlisted: 'Add to Shortlist',
       interview: 'Schedule Interview',
+      offer: 'Extend Offer',
       hired: 'Hire Applicant',
       rejected: 'Reject Application'
     };
@@ -65,15 +70,34 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
     }
   };
 
+  const toggleProposalExpanded = (applicationId) => {
+    setExpandedProposals(prev => ({
+      ...prev,
+      [applicationId]: !prev[applicationId]
+    }));
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       applied: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
       viewed: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+      shortlisted: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       interview: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      offer: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
       hired: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-      rejected: 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+      rejected: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
+      withdrawn: 'bg-slate-500/20 text-slate-400 border-slate-500/30'
     };
     return colors[status] || 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+  };
+
+  const getBidTypeLabel = (bidType) => {
+    const labels = {
+      hourly: '/hour',
+      fixed: ' (fixed)',
+      monthly: '/month'
+    };
+    return labels[bidType] || '';
   };
 
   const formatDate = (dateString) => {
@@ -177,6 +201,18 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Rating */}
+                    {application.employerRating && (
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${i < application.employerRating ? 'text-amber-400 fill-amber-400' : 'text-slate-600'}`}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -189,6 +225,89 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
                       {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
                     </span>
                   </div>
+
+                  {/* Proposal Section */}
+                  {application.proposal && (
+                    <div className="glass-light rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-teal-400 flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4" />
+                          Proposal
+                        </h4>
+                        <button
+                          onClick={() => toggleProposalExpanded(application._id)}
+                          className="text-slate-400 hover:text-white transition"
+                        >
+                          {expandedProposals[application._id] ? (
+                            <ChevronUp className="w-5 h-5" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Bid Info */}
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        {application.proposal.bidAmount && (
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="w-4 h-4 text-emerald-400" />
+                            <span className="text-slate-300">
+                              ${application.proposal.bidAmount}{getBidTypeLabel(application.proposal.bidType)}
+                            </span>
+                          </div>
+                        )}
+                        {application.proposal.availableHoursPerWeek && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-cyan-400" />
+                            <span className="text-slate-300">
+                              {application.proposal.availableHoursPerWeek} hrs/week available
+                            </span>
+                          </div>
+                        )}
+                        {application.proposal.availableToStart && (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-purple-400" />
+                            <span className="text-slate-300">
+                              Start: {application.proposal.availableToStart.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Cover Letter (Expandable) */}
+                      <AnimatePresence>
+                        {expandedProposals[application._id] && application.proposal.coverLetter && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pt-3 border-t border-slate-700/50">
+                              <p className="text-sm text-slate-400 font-medium mb-2">Cover Letter:</p>
+                              <p className="text-sm text-slate-300 whitespace-pre-line">
+                                {application.proposal.coverLetter}
+                              </p>
+                            </div>
+                            
+                            {/* Highlighted Skills */}
+                            {application.proposal.highlightedSkills && application.proposal.highlightedSkills.length > 0 && (
+                              <div className="pt-3 mt-3 border-t border-slate-700/50">
+                                <p className="text-sm text-slate-400 font-medium mb-2">Highlighted Skills:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {application.proposal.highlightedSkills.map((skill, i) => (
+                                    <span key={i} className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded text-xs">
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
 
                   {/* Resume Link */}
                   {application.resume && (
@@ -211,12 +330,11 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
                     <span className="text-sm">Applied {formatDate(application.appliedAt)}</span>
                   </div>
 
-                  {/* Applicant Profile Info */}
-                  {application.applicant?.profile && (
+                  {/* Employer Notes */}
+                  {application.employerNotes && (
                     <div className="pt-2 border-t border-slate-700/50">
-                      <p className="text-sm text-slate-400 line-clamp-2">
-                        {application.applicant.profile}
-                      </p>
+                      <p className="text-sm text-slate-500 mb-1">Your Notes:</p>
+                      <p className="text-sm text-slate-400 italic">{application.employerNotes}</p>
                     </div>
                   )}
                 </div>
@@ -224,17 +342,27 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
                 {/* Card Actions */}
                 <div className="px-6 pb-6">
                   <div className="grid grid-cols-2 gap-2">
-                    {application.status !== 'viewed' && (
+                    {application.status === 'applied' && (
                       <button
                         onClick={() => handleStatusUpdate(application._id, 'viewed')}
                         disabled={updateLoading === application._id}
                         className="flex items-center justify-center gap-2 px-3 py-2.5 bg-purple-500/10 text-purple-400 rounded-xl hover:bg-purple-500/20 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Eye className="w-4 h-4" />
-                        View
+                        Mark Viewed
                       </button>
                     )}
-                    {application.status !== 'interview' && application.status !== 'hired' && application.status !== 'rejected' && (
+                    {!['shortlisted', 'interview', 'offer', 'hired', 'rejected', 'withdrawn'].includes(application.status) && (
+                      <button
+                        onClick={() => handleStatusUpdate(application._id, 'shortlisted')}
+                        disabled={updateLoading === application._id}
+                        className="flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-500/10 text-blue-400 rounded-xl hover:bg-blue-500/20 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Star className="w-4 h-4" />
+                        Shortlist
+                      </button>
+                    )}
+                    {!['interview', 'offer', 'hired', 'rejected', 'withdrawn'].includes(application.status) && (
                       <button
                         onClick={() => handleStatusUpdate(application._id, 'interview')}
                         disabled={updateLoading === application._id}
@@ -244,7 +372,17 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
                         Interview
                       </button>
                     )}
-                    {application.status !== 'hired' && application.status !== 'rejected' && (
+                    {application.status === 'interview' && (
+                      <button
+                        onClick={() => handleStatusUpdate(application._id, 'offer')}
+                        disabled={updateLoading === application._id}
+                        className="flex items-center justify-center gap-2 px-3 py-2.5 bg-teal-500/10 text-teal-400 rounded-xl hover:bg-teal-500/20 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Send Offer
+                      </button>
+                    )}
+                    {!['hired', 'rejected', 'withdrawn'].includes(application.status) && (
                       <button
                         onClick={() => handleStatusUpdate(application._id, 'hired')}
                         disabled={updateLoading === application._id}
@@ -254,7 +392,7 @@ const ApplicationList = ({ jobId, jobTitle, onBack }) => {
                         Hire
                       </button>
                     )}
-                    {application.status !== 'rejected' && application.status !== 'hired' && (
+                    {!['rejected', 'hired', 'withdrawn'].includes(application.status) && (
                       <button
                         onClick={() => handleStatusUpdate(application._id, 'rejected')}
                         disabled={updateLoading === application._id}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Edit2, Save, X, Trash2, MapPin, DollarSign, Calendar, Building, Briefcase, FileText, CheckCircle, Users } from 'lucide-react';
+import { ArrowLeft, Edit2, Save, X, Trash2, MapPin, DollarSign, Calendar, Building, Briefcase, FileText, CheckCircle, Users, Globe, Clock, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const API_BASE_URL = 'https://workky-backend.vercel.app/api';
@@ -9,17 +9,42 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
   const [job, setJob] = useState(jobProp);
   const [isEditing, setIsEditing] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(!jobProp && jobId);
+  const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     company: '',
-    requirements: '',
+    requirements: [''],
     location: '',
-    salary: ''
+    salary: '',
+    jobType: 'remote',
+    workArrangement: 'monthly',
+    businessType: 'hybrid',
+    status: 'active'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  // Fetch categories for dropdown
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_BASE_URL}/categories`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        // Handle both array response and object response with categories property
+        const data = res.data;
+        const categoriesArray = Array.isArray(data) ? data : (data?.categories || data?.data || []);
+        setCategories(categoriesArray);
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+        setCategories([]);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Fetch job if accessed via URL with jobId
   useEffect(() => {
@@ -33,7 +58,7 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
           });
           setJob(res.data);
         } catch (err) {
-          setError(err.response?.data?.message || 'Failed to load job');
+          setError(err.response?.data?.msg || err.response?.data?.message || 'Failed to load job');
         } finally {
           setFetchLoading(false);
         }
@@ -46,13 +71,25 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
 
   useEffect(() => {
     if (job) {
+      // Handle requirements - could be string or array
+      let requirements = [''];
+      if (Array.isArray(job.requirements)) {
+        requirements = job.requirements.length > 0 ? job.requirements : [''];
+      } else if (typeof job.requirements === 'string' && job.requirements) {
+        requirements = [job.requirements];
+      }
+      
       setFormData({
         title: job.title || '',
         description: job.description || '',
         company: job.company || '',
-        requirements: job.requirements || '',
+        requirements,
         location: job.location || '',
-        salary: job.salary || ''
+        salary: job.salary || '',
+        jobType: job.jobType || 'remote',
+        workArrangement: job.workArrangement || 'monthly',
+        businessType: job.businessType || 'hybrid',
+        status: job.status || 'active'
       });
     }
   }, [job]);
@@ -64,6 +101,23 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
     if (success) setSuccess(null);
   };
 
+  const handleRequirementChange = (index, value) => {
+    const newRequirements = [...formData.requirements];
+    newRequirements[index] = value;
+    setFormData(prev => ({ ...prev, requirements: newRequirements }));
+  };
+
+  const addRequirement = () => {
+    setFormData(prev => ({ ...prev, requirements: [...prev.requirements, ''] }));
+  };
+
+  const removeRequirement = (index) => {
+    if (formData.requirements.length > 1) {
+      const newRequirements = formData.requirements.filter((_, i) => i !== index);
+      setFormData(prev => ({ ...prev, requirements: newRequirements }));
+    }
+  };
+
   const handleUpdate = async e => {
     e.preventDefault();
     setLoading(true);
@@ -72,18 +126,28 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
 
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.put(`${API_BASE_URL}/jobs/${job._id}`, formData, {
+      
+      // Filter empty requirements
+      const filteredRequirements = formData.requirements.filter(r => r.trim());
+      
+      const submitData = {
+        ...formData,
+        requirements: filteredRequirements.length > 0 ? filteredRequirements : undefined
+      };
+      
+      const res = await axios.put(`${API_BASE_URL}/jobs/${job._id}`, submitData, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
       setSuccess('Job updated successfully!');
       setIsEditing(false);
+      setJob(res.data);
       
       if (onJobUpdated) {
         onJobUpdated(res.data);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update job');
+      setError(err.response?.data?.msg || err.response?.data?.message || 'Failed to update job');
     } finally {
       setLoading(false);
     }
@@ -105,7 +169,7 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
         onJobDeleted(job._id);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete job');
+      setError(err.response?.data?.msg || err.response?.data?.message || 'Failed to delete job');
       setLoading(false);
     }
   };
@@ -115,7 +179,26 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
     return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
 
+  const getJobTypeBadge = (jobType) => {
+    const badges = {
+      remote: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Remote' },
+      on_site: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'On-Site' },
+      hybrid: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: 'Hybrid' }
+    };
+    return badges[jobType] || badges.remote;
+  };
+
+  const getWorkArrangementBadge = (arrangement) => {
+    const badges = {
+      monthly: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', label: 'Monthly' },
+      weekly: { bg: 'bg-teal-500/20', text: 'text-teal-400', label: 'Weekly' },
+      project: { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Project-Based' }
+    };
+    return badges[arrangement] || badges.monthly;
+  };
+
   const inputClasses = "w-full px-4 py-3 text-base rounded-xl bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed";
+  const selectClasses = `${inputClasses} appearance-none cursor-pointer`;
 
   if (fetchLoading) {
     return (
@@ -135,6 +218,9 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
       </div>
     );
   }
+
+  const jobTypeBadge = getJobTypeBadge(job.jobType);
+  const arrangementBadge = getWorkArrangementBadge(job.workArrangement);
 
   return (
     <div className="w-full p-6 animate-fade-in">
@@ -262,6 +348,67 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
               </div>
 
               <div className="glass-light rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-cyan-400 mb-4 flex items-center gap-2">
+                  <Layers className="w-5 h-5" />
+                  Job Type & Arrangement
+                </h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-300 mb-2">
+                      Job Type
+                    </label>
+                    <select
+                      name="jobType"
+                      value={formData.jobType}
+                      onChange={handleChange}
+                      disabled={loading}
+                      className={selectClasses}
+                    >
+                      <option value="remote">Remote</option>
+                      <option value="on_site">On-Site</option>
+                      <option value="hybrid">Hybrid</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-300 mb-2">
+                      Work Arrangement
+                    </label>
+                    <select
+                      name="workArrangement"
+                      value={formData.workArrangement}
+                      onChange={handleChange}
+                      disabled={loading}
+                      className={selectClasses}
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="project">Project-Based</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-300 mb-2">
+                      Status
+                    </label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      disabled={loading}
+                      className={selectClasses}
+                    >
+                      <option value="active">Active</option>
+                      <option value="paused">Paused</option>
+                      <option value="closed">Closed</option>
+                      <option value="draft">Draft</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-light rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
                   Location & Compensation
@@ -270,14 +417,13 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Location <span className="text-rose-400">*</span>
+                      Location
                     </label>
                     <input
                       type="text"
                       name="location"
                       value={formData.location}
                       onChange={handleChange}
-                      required
                       disabled={loading}
                       className={inputClasses}
                     />
@@ -300,7 +446,7 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
               </div>
 
               <div className="glass-light rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-cyan-400 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-purple-400 mb-4 flex items-center gap-2">
                   <FileText className="w-5 h-5" />
                   Description & Requirements
                 </h3>
@@ -323,17 +469,37 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Requirements <span className="text-rose-400">*</span>
+                      Requirements
                     </label>
-                    <textarea
-                      name="requirements"
-                      value={formData.requirements}
-                      onChange={handleChange}
-                      required
+                    {formData.requirements.map((req, index) => (
+                      <div key={index} className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={req}
+                          onChange={(e) => handleRequirementChange(index, e.target.value)}
+                          placeholder={`Requirement ${index + 1}`}
+                          disabled={loading}
+                          className={inputClasses}
+                        />
+                        {formData.requirements.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeRequirement(index)}
+                            className="px-3 py-2 bg-rose-500/20 text-rose-400 rounded-xl hover:bg-rose-500/30 transition"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addRequirement}
                       disabled={loading}
-                      rows="4"
-                      className={`${inputClasses} resize-none`}
-                    />
+                      className="mt-2 px-4 py-2 bg-slate-700/50 text-slate-300 rounded-xl hover:bg-slate-700 transition text-sm"
+                    >
+                      + Add Requirement
+                    </button>
                   </div>
                 </div>
               </div>
@@ -355,14 +521,26 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                   type="button"
                   onClick={() => {
                     setIsEditing(false);
-                    setFormData({
-                      title: job.title || '',
-                      description: job.description || '',
-                      company: job.company || '',
-                      requirements: job.requirements || '',
-                      location: job.location || '',
-                      salary: job.salary || ''
-                    });
+                    if (job) {
+                      let requirements = [''];
+                      if (Array.isArray(job.requirements)) {
+                        requirements = job.requirements.length > 0 ? job.requirements : [''];
+                      } else if (typeof job.requirements === 'string' && job.requirements) {
+                        requirements = [job.requirements];
+                      }
+                      setFormData({
+                        title: job.title || '',
+                        description: job.description || '',
+                        company: job.company || '',
+                        requirements,
+                        location: job.location || '',
+                        salary: job.salary || '',
+                        jobType: job.jobType || 'remote',
+                        workArrangement: job.workArrangement || 'monthly',
+                        businessType: job.businessType || 'hybrid',
+                        status: job.status || 'active'
+                      });
+                    }
                   }}
                   disabled={loading}
                   className="flex items-center justify-center gap-2 px-6 py-3.5 text-lg font-semibold text-slate-300 bg-slate-800 rounded-xl hover:bg-slate-700 transition disabled:opacity-50"
@@ -379,15 +557,43 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
               <div className="border-b border-slate-700/50 pb-6">
                 <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4">{job.title}</h3>
                 
+                {/* Badges */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className={`px-3 py-1 rounded-lg text-sm font-medium ${jobTypeBadge.bg} ${jobTypeBadge.text}`}>
+                    {jobTypeBadge.label}
+                  </span>
+                  <span className={`px-3 py-1 rounded-lg text-sm font-medium ${arrangementBadge.bg} ${arrangementBadge.text}`}>
+                    {arrangementBadge.label}
+                  </span>
+                  {job.status && (
+                    <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                      job.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
+                      job.status === 'paused' ? 'bg-amber-500/20 text-amber-400' :
+                      job.status === 'closed' ? 'bg-slate-500/20 text-slate-400' :
+                      'bg-purple-500/20 text-purple-400'
+                    }`}>
+                      {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                    </span>
+                  )}
+                </div>
+                
                 <div className="flex flex-wrap gap-4">
                   <div className="flex items-center gap-2 text-slate-300">
                     <Building className="w-5 h-5 text-teal-400" />
                     <span className="font-medium">{job.company}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <MapPin className="w-5 h-5 text-teal-400" />
-                    <span>{job.location}</span>
-                  </div>
+                  {job.location && (
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <MapPin className="w-5 h-5 text-teal-400" />
+                      <span>{job.location}</span>
+                    </div>
+                  )}
+                  {job.category && (
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <Globe className="w-5 h-5 text-cyan-400" />
+                      <span>{job.category.name || job.category}</span>
+                    </div>
+                  )}
                   {job.salary && (
                     <div className="flex items-center gap-2 text-slate-300">
                       <DollarSign className="w-5 h-5 text-emerald-400" />
@@ -416,8 +622,114 @@ const JobDetail = ({ job: jobProp, jobId, onBack, onJobUpdated, onJobDeleted, on
                   <CheckCircle className="w-5 h-5" />
                   Requirements
                 </h4>
-                <p className="text-slate-300 leading-relaxed whitespace-pre-line">{job.requirements}</p>
+                {Array.isArray(job.requirements) ? (
+                  <ul className="space-y-2">
+                    {job.requirements.map((req, index) => (
+                      <li key={index} className="flex items-start gap-2 text-slate-300">
+                        <span className="text-teal-400 mt-1">•</span>
+                        <span>{req}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-300 leading-relaxed whitespace-pre-line">{job.requirements}</p>
+                )}
               </div>
+
+              {/* Skills */}
+              {job.skillsRequired && job.skillsRequired.length > 0 && (
+                <div className="glass-light rounded-xl p-6">
+                  <h4 className="text-lg font-bold text-amber-400 mb-3 flex items-center gap-2">
+                    <Layers className="w-5 h-5" />
+                    Skills Required
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {job.skillsRequired.map((skill, index) => (
+                      <span key={index} className="px-3 py-1.5 bg-slate-700/50 text-slate-300 rounded-lg text-sm">
+                        {skill.skill} {skill.level && skill.level !== 'intermediate' && `(${skill.level})`}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Compensation */}
+              {job.compensation && (
+                <div className="glass-light rounded-xl p-6">
+                  <h4 className="text-lg font-bold text-purple-400 mb-3 flex items-center gap-2">
+                    <Clock className="w-5 h-5" />
+                    Compensation Details
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                    {job.workArrangement === 'monthly' && job.compensation.monthly && (
+                      <>
+                        {job.compensation.monthly.hoursPerMonth && (
+                          <div>
+                            <span className="text-slate-500">Hours/Month:</span>
+                            <span className="ml-2 text-slate-300">{job.compensation.monthly.hoursPerMonth}</span>
+                          </div>
+                        )}
+                        {job.compensation.monthly.hourlyRate && (
+                          <div>
+                            <span className="text-slate-500">Hourly Rate:</span>
+                            <span className="ml-2 text-slate-300">${job.compensation.monthly.hourlyRate}</span>
+                          </div>
+                        )}
+                        {job.compensation.monthly.totalMonthlyBudget && (
+                          <div>
+                            <span className="text-slate-500">Monthly Budget:</span>
+                            <span className="ml-2 text-slate-300">${job.compensation.monthly.totalMonthlyBudget}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {job.workArrangement === 'weekly' && job.compensation.weekly && (
+                      <>
+                        {job.compensation.weekly.hoursPerWeek && (
+                          <div>
+                            <span className="text-slate-500">Hours/Week:</span>
+                            <span className="ml-2 text-slate-300">{job.compensation.weekly.hoursPerWeek}</span>
+                          </div>
+                        )}
+                        {job.compensation.weekly.hourlyRate && (
+                          <div>
+                            <span className="text-slate-500">Hourly Rate:</span>
+                            <span className="ml-2 text-slate-300">${job.compensation.weekly.hourlyRate}</span>
+                          </div>
+                        )}
+                        {job.compensation.weekly.weeklyBudget && (
+                          <div>
+                            <span className="text-slate-500">Weekly Budget:</span>
+                            <span className="ml-2 text-slate-300">${job.compensation.weekly.weeklyBudget}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {job.workArrangement === 'project' && job.compensation.project && (
+                      <>
+                        {job.compensation.project.expectedTotalHours && (
+                          <div>
+                            <span className="text-slate-500">Est. Hours:</span>
+                            <span className="ml-2 text-slate-300">{job.compensation.project.expectedTotalHours}</span>
+                          </div>
+                        )}
+                        {job.compensation.project.totalBudget && (
+                          <div>
+                            <span className="text-slate-500">Total Budget:</span>
+                            <span className="ml-2 text-slate-300">${job.compensation.project.totalBudget}</span>
+                          </div>
+                        )}
+                        {job.compensation.project.projectDuration && (
+                          <div>
+                            <span className="text-slate-500">Duration:</span>
+                            <span className="ml-2 text-slate-300">{job.compensation.project.projectDuration}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </motion.div>

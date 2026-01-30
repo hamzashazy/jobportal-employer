@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Briefcase, MapPin, DollarSign, Calendar, Edit, Trash2, Eye, RefreshCw } from 'lucide-react';
+import { Briefcase, MapPin, DollarSign, Calendar, Edit, Trash2, Eye, RefreshCw, Globe, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const API_BASE_URL = 'https://workky-backend.vercel.app/api';
@@ -16,33 +16,17 @@ const JobList = ({ onViewJob, onEditJob }) => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      let currentUserId = null;
-      if (token) {
-        try {
-          const base64Url = token.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
-            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-          ).join(''));
-          const payload = JSON.parse(jsonPayload);
-          currentUserId = payload.user?.id || payload.id;
-        } catch (decodeError) {
-          console.error('Error decoding token:', decodeError);
-        }
-      }
-      
-      const res = await axios.get(`${API_BASE_URL}/jobs`, {
+      // Use the /my endpoint which returns only employer's own jobs
+      const res = await axios.get(`${API_BASE_URL}/jobs/my`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      const employerJobs = currentUserId 
-        ? res.data.filter(job => job.employer === currentUserId || job.employer?._id === currentUserId)
-        : res.data;
-      
-      setJobs(employerJobs);
+      // Handle paginated response format { success, count, data }
+      const jobsData = res.data.data || res.data;
+      setJobs(Array.isArray(jobsData) ? jobsData : []);
       setError(null);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load jobs');
+      setError(err.response?.data?.msg || err.response?.data?.message || 'Failed to load jobs');
     } finally {
       setLoading(false);
     }
@@ -66,7 +50,7 @@ const JobList = ({ onViewJob, onEditJob }) => {
       
       setJobs(jobs.filter(job => job._id !== jobId));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete job');
+      alert(err.response?.data?.msg || err.response?.data?.message || 'Failed to delete job');
     } finally {
       setDeleteLoading(null);
     }
@@ -75,6 +59,24 @@ const JobList = ({ onViewJob, onEditJob }) => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const getJobTypeBadge = (jobType) => {
+    const badges = {
+      remote: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Remote' },
+      on_site: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'On-Site' },
+      hybrid: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: 'Hybrid' }
+    };
+    return badges[jobType] || badges.remote;
+  };
+
+  const getWorkArrangementBadge = (arrangement) => {
+    const badges = {
+      monthly: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', label: 'Monthly' },
+      weekly: { bg: 'bg-teal-500/20', text: 'text-teal-400', label: 'Weekly' },
+      project: { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Project' }
+    };
+    return badges[arrangement] || badges.monthly;
   };
 
   if (loading) {
@@ -143,74 +145,103 @@ const JobList = ({ onViewJob, onEditJob }) => {
 
         {/* Job Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {jobs.map((job, index) => (
-            <motion.div
-              key={job._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="glass rounded-2xl overflow-hidden card-hover group"
-            >
-              {/* Card Header with Gradient */}
-              <div className="bg-gradient-to-r from-teal-500/20 to-emerald-500/20 p-6 border-b border-slate-700/50">
-                <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 group-hover:text-teal-400 transition-colors">
-                  {job.title}
-                </h3>
-                <p className="text-teal-400 font-medium">{job.company}</p>
-              </div>
-
-              {/* Card Body */}
-              <div className="p-6 space-y-3">
-                <div className="flex items-center gap-2 text-slate-400">
-                  <MapPin className="w-4 h-4 text-teal-400 flex-shrink-0" />
-                  <span className="text-sm">{job.location}</span>
-                </div>
-
-                {job.salary && (
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <DollarSign className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    <span className="text-sm">{job.salary}</span>
+          {jobs.map((job, index) => {
+            const jobTypeBadge = getJobTypeBadge(job.jobType);
+            const arrangementBadge = getWorkArrangementBadge(job.workArrangement);
+            
+            return (
+              <motion.div
+                key={job._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="glass rounded-2xl overflow-hidden card-hover group"
+              >
+                {/* Card Header with Gradient */}
+                <div className="bg-gradient-to-r from-teal-500/20 to-emerald-500/20 p-6 border-b border-slate-700/50">
+                  <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 group-hover:text-teal-400 transition-colors">
+                    {job.title}
+                  </h3>
+                  <p className="text-teal-400 font-medium">{job.company}</p>
+                  
+                  {/* Badges */}
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${jobTypeBadge.bg} ${jobTypeBadge.text}`}>
+                      {jobTypeBadge.label}
+                    </span>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${arrangementBadge.bg} ${arrangementBadge.text}`}>
+                      {arrangementBadge.label}
+                    </span>
+                    {job.status && job.status !== 'active' && (
+                      <span className="px-2 py-1 rounded-lg text-xs font-medium bg-slate-500/20 text-slate-400">
+                        {job.status}
+                      </span>
+                    )}
                   </div>
-                )}
-
-                <div className="flex items-center gap-2 text-slate-500">
-                  <Calendar className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm">Posted {formatDate(job.postedAt)}</span>
                 </div>
 
-                <div className="pt-2">
-                  <p className="text-slate-400 text-sm line-clamp-3">
-                    {job.description}
-                  </p>
-                </div>
-              </div>
+                {/* Card Body */}
+                <div className="p-6 space-y-3">
+                  {job.location && (
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <MapPin className="w-4 h-4 text-teal-400 flex-shrink-0" />
+                      <span className="text-sm">{job.location}</span>
+                    </div>
+                  )}
 
-              {/* Card Actions */}
-              <div className="px-6 pb-6 flex gap-2">
-                <button
-                  onClick={() => onViewJob && onViewJob(job)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500/10 text-teal-400 rounded-xl hover:bg-teal-500/20 transition font-medium"
-                >
-                  <Eye className="w-4 h-4" />
-                  View
-                </button>
-                <button
-                  onClick={() => onEditJob && onEditJob(job)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl hover:bg-emerald-500/20 transition font-medium"
-                >
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(job._id)}
-                  disabled={deleteLoading === job._id}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500/10 text-rose-400 rounded-xl hover:bg-rose-500/20 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </motion.div>
-          ))}
+                  {job.category && (
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Globe className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                      <span className="text-sm">{job.category.name || job.category}</span>
+                    </div>
+                  )}
+
+                  {job.salary && (
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <DollarSign className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      <span className="text-sm">{job.salary}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm">Posted {formatDate(job.postedAt)}</span>
+                  </div>
+
+                  <div className="pt-2">
+                    <p className="text-slate-400 text-sm line-clamp-3">
+                      {job.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Card Actions */}
+                <div className="px-6 pb-6 flex gap-2">
+                  <button
+                    onClick={() => onViewJob && onViewJob(job)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500/10 text-teal-400 rounded-xl hover:bg-teal-500/20 transition font-medium"
+                  >
+                    <Eye className="w-4 h-4" />
+                    View
+                  </button>
+                  <button
+                    onClick={() => onEditJob && onEditJob(job)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl hover:bg-emerald-500/20 transition font-medium"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(job._id)}
+                    disabled={deleteLoading === job._id}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500/10 text-rose-400 rounded-xl hover:bg-rose-500/20 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </div>
